@@ -1,0 +1,60 @@
+stages: # List of stages for jobs, and their order of execution
+  - build
+  - test
+  - security_quality_gates
+  - deploy
+
+build-job: # This job runs in the build stage, which runs first.
+  stage: build
+  script:
+    - docker build -t fastapi_image .
+
+test-job: # This job runs in the test stage.
+  stage: test
+  needs:
+    - build-job
+  script:
+    - docker run --rm fastapi_image pytest -s -v
+
+config-security-job: # This job checks config security
+  stage: security_quality_gates
+  needs:
+    - build-job
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [ "" ]
+  script:
+    - trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL ./Dockerfile
+
+image-security-job: # This job checks image.
+  stage: security_quality_gates
+  needs:
+    - build-job
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [ "" ]
+  script:
+    - trivy image --exit-code 1 --scanners vuln,misconfig,secret --severity MEDIUM,HIGH,CRITICAL fastapi_image
+
+sonarqube_scan: # This job execute SAST
+  stage: security_quality_gates
+#  image: sonarsource/sonar-scanner-cli:latest
+  script:
+#    - sonar-scanner \
+#      -Dsonar.projectKey=my_project \
+#      -Dsonar.sources=. \
+#      -Dsonar.host.url=http://sonarqube:9000 \
+#      -Dsonar.login=$SONAR_TOKEN \
+    - echo $TEST
+  variables:
+    SONAR_TOKEN: $TEST
+
+deploy-job: # This job runs in the deploy stage.
+  stage: deploy
+  needs:
+    - build-job
+    - test-job
+    - config-security-job
+    - image-security-job
+  script:
+    - docker-compose up -d
