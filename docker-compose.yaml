@@ -1,0 +1,8 @@
+services:
+  backend:
+    image: fastapi_image:latest
+    container_name: fastapi_image_container
+    ports:
+      - 8080:8000
+#    user: appuser
+    command: "python main.py"
